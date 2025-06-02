@@ -3,7 +3,8 @@ from fastapi.encoders import jsonable_encoder
 from typing import List
 from fastapi.responses import JSONResponse
 from models import FacebookScrape, InstagramScrape, TwitterScreape
-from services import TwiScrapperService
+from services.TwitterScraperService import TwitterScraperService
+from services.InstaScraperService import InstaScraperService
 
 router =  APIRouter()
 
@@ -12,7 +13,7 @@ router =  APIRouter()
 async def twitterscrapper(profile:str, request:Request):
     try:
         db = request.app.database
-        scraper = TwiScrapperService(db)
+        scraper = TwitterScraperService(db)
         tweets = await scraper.save_scrape_profile(profile)
         tweets = jsonable_encoder(tweets)
         return JSONResponse(content=tweets)
@@ -24,10 +25,20 @@ async def twitterscrapper(profile:str, request:Request):
 async def accountsScrapper(profiles:List[str],request:Request):
     try:
         db = request.app.database
-        scraper = TwiScrapperService(db)
+        scraper = TwitterScraperService(db)
         tweets = scraper.scrape_and_save_profiles(profiles)
         tweets = jsonable_encoder(tweets)
         return JSONResponse(content=tweets)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail =str(e))
+    
+@router.get("/instagram/{profile}")
+async def instagramscraper(profile:str, request:Request):
+    try:
+        db = request.app.database
+        scrapper = InstaScraperService(db)
+        return await scrapper.scrape_by_profile(profile)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail =str(e))

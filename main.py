@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from dotenv import dotenv_values
 from pymongo import MongoClient
 from services.routes import router as scrape_router
-
+import logging
 #Valores de configuraciones.
 app = FastAPI()
 config = dotenv_values(".env")
+logging.getLogger("pymongo").setLevel(logging.WARNING)
 
 @app.get("/")
 async def root():
