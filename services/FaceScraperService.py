@@ -5,16 +5,18 @@ from selenium.webdriver.common.action_chains import ActionChains
 import time
 import json
 import random
+import os
 
 class FaceScraperService:
-    def  __init__(self, profile:str,db,cookie_file:str = "cookies.json"):
+    def  __init__(self, profile:str,db,cookie_file:str):
         self.profile_url = f"https://www.facebook.com/{profile}"
-        self.cookie_file = cookie_file
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        self.cookie_file = os.path.join(base_dir, "cookiesFC.json")
         self.profile = profile
         self.driver = None
         self.actions = None
         self.db = db
-        self.collection = db["Facebook"]
+        self.collection = db["facePosts"]
 
     def _setup_driver(self):
         options = Options()
@@ -106,7 +108,11 @@ class FaceScraperService:
 
         self.driver.quit()
         if post_data:
-            self.collection.insert_many(post_data)
+          result = self.collection.insert_many(post_data)
+        # Agrega los _id convertidos manualmente si necesitas devolverlos
+          for i, inserted_id in enumerate(result.inserted_ids):
+            post_data[i]["_id"] = str(inserted_id)
+          return post_data  # Ahora es serializable
 
         return post_data
         

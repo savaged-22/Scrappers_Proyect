@@ -48,8 +48,8 @@ async def instagramscraper(profile:str, request:Request):
 async def faceScraper(profile:str, request:Request):
     try: 
         db= request.app.database
-        cookie_file:str = "cookies.json"
-        scraper = FaceScraperService(profile,cookie_file,db)
+        cookie_file:str = "Scrappers_Proyect/services/cookiesFC.json"
+        scraper = FaceScraperService(profile,db,cookie_file)
         max_posts = 30
         return await scraper.scrape_posts(max_posts)
     except Exception as e:

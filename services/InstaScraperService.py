@@ -9,6 +9,7 @@ import json
 import random
 from typing import AsyncGenerator
 from urllib.parse import quote
+from bson import ObjectId
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -55,6 +56,9 @@ class InstaScraperService:
             "content-type": "application/x-www-form-urlencoded"
         }
 
+    def clean_post(post: dict):
+        post['_id'] = str(post.get('_id')) if '_id' in post else None
+        return post
 
     def parse_user(data: Dict) -> Dict:
         """Parse instagram user's hidden web dataset for user's data"""
@@ -191,9 +195,10 @@ class InstaScraperService:
         async for post in self.scrape_user_posts(profile,max_pages=max_pages):
             all_posts.append(post)
             print(f"[{profile}] Post ID: {post['post'].get('id')}")
-
+            self.collection.insert_one(post)
         print(f"✅ Finalizado: {profile}")
-        return all_posts
+
+        return [self.clean_post(p) for p in all_posts]
 
     async def consult_profiles(self,usernames: list[str]):
         all_posts = []
@@ -204,9 +209,10 @@ class InstaScraperService:
 
             async for post in self.scrape_user_posts(username, max_pages=max_pages):
                 all_posts.append(post)
+                self.collection.insert_one(post)
                 print(f"[{username}] Post ID: {post['post'].get('id')}")
 
             print(f"✅ Finalizado: {username}")
 
         print("\n📁 Todos los datos han sido finalizados.")
-        return all_posts
+        return [self.clean_post(p) for p in all_posts]
