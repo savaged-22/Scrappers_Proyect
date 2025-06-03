@@ -2,9 +2,9 @@ from fastapi import APIRouter, Body, Request, Response, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from typing import List
 from fastapi.responses import JSONResponse
-from models import FacebookScrape, InstagramScrape, TwitterScreape
 from services.TwitterScraperService import TwitterScraperService
 from services.InstaScraperService import InstaScraperService
+from services.FaceScraperService import FaceScraperService
 
 router =  APIRouter()
 
@@ -40,5 +40,17 @@ async def instagramscraper(profile:str, request:Request):
         scrapper = InstaScraperService(db)
         return await scrapper.scrape_by_profile(profile)
 
+    except Exception as e:
+        raise HTTPException(status_code=500, detail =str(e))
+
+
+@router.get("/Facebook/{profile}")
+async def faceScraper(profile:str, request:Request):
+    try: 
+        db= request.app.database
+        cookie_file:str = "cookies.json"
+        scraper = FaceScraperService(profile,cookie_file,db)
+        max_posts = 30
+        return await scraper.scrape_posts(max_posts)
     except Exception as e:
         raise HTTPException(status_code=500, detail =str(e))
