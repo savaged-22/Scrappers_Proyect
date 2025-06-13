@@ -1,15 +1,17 @@
 import os
-from typing import Dict, Optional
-from dotenv import load_dotenv
+import re
 import logging
 import httpx
 import jmespath
 import asyncio
 import json
 import random
+import datetime
 from typing import AsyncGenerator
 from urllib.parse import quote
-from bson import ObjectId
+from typing import Dict, Optional
+from dotenv import load_dotenv
+
 
 load_dotenv()
 logging.basicConfig(level=logging.DEBUG)
@@ -124,9 +126,6 @@ class InstaScraperService:
         )
         return result
     
-    def Extract_post_info():
-        return None
-
     async def scrape_user_posts(self, username: str, page_size: int = 12, max_pages: Optional[int] = None) -> AsyncGenerator[Dict, None]:
         base_url = "https://www.instagram.com/graphql/query"
         variables = {
@@ -195,10 +194,63 @@ class InstaScraperService:
         async for post in self.scrape_user_posts(profile,max_pages=max_pages):
             all_posts.append(post)
             print(f"[{profile}] Post ID: {post['post'].get('id')}")
-            self.collection.insert_one(post)
-        print(f"✅ Finalizado: {profile}")
+            uid = post['post'].get('id')
+            code_uid =  post.get('post',{}).get('code')
+            
+            if not code_uid:
+                print(f"Error: El 'Code' de la publicacion no se encontro en el post. {uid}")
 
-        return [self.clean_post(p) for p in all_posts]
+            if self.collection.find_one({'post.code':code_uid}):
+                print(f"La publicación con el código '{code_uid}' ya existe en la base de datos.")
+            else:
+                print(f"La publicación con el código '{code_uid}' NO existe en la base de datos.")
+                post = self.reestructured(post)
+                self.collection.insert_one(post)
+
+        print(f"✅ Finalizado: {profile}")
+        for post in all_posts:
+            post['_id'] = str(post.get('_id')) if '_id' in post else None 
+
+        return all_posts
+
+    def reestructured(self, post:dict)->dict:
+        uid = post['post'].get('id')
+        code_post = post.get('post',{}).get('code')
+        created_at = datetime.datetime.utcfromtimestamp(post.get('post',{}).get('caption',{}).get('created_at'))
+        parse_text = self.clean_text(post.get('post',{}).get('caption',{}).get('text'))
+        user = post.get("user")
+        videos = post.get("video_versions")
+        coments = post.get("comment_count")
+        like_counts= post.get("like_count")
+        product_type =post.get("product_type")
+        carousel_media_count = post.get("carousel_media_count")
+        carousel_media = post.get("carousel_media")
+        location = post.get("location")
+        audio = post.get("has_audio")
+        clips_metadata = post.get("clips_metadata")
+        media_cropping_info = post.get("media_cropping_info")
+        timeline_pinned_user_ids = post.get("timeline_pinned_user_ids")
+        __typename = post.get("__typename")
+        data = {
+            "uid":uid,
+            "code_post":code_post,
+            "created_at":created_at,
+            "parse_text":parse_text,
+            "user":user,
+            "videos":videos,
+            "comments":coments,
+            "like_counts":like_counts,
+            "product_type": product_type,
+            "carousel_media_count":carousel_media_count,
+            "carousel_media":carousel_media,
+            "location":location,
+            "audio":audio,
+            "clips_metadata":clips_metadata,
+            "media_cropping_data":media_cropping_info,
+            "timeline_pinned_user_ids":timeline_pinned_user_ids,
+            "__typename":__typename
+        }
+        return data
 
     async def consult_profiles(self,usernames: list[str]):
         all_posts = []
@@ -216,3 +268,16 @@ class InstaScraperService:
 
         print("\n📁 Todos los datos han sido finalizados.")
         return [self.clean_post(p) for p in all_posts]
+    
+    def clean_text(self,text):
+        emoji_pattern = re.compile(
+        "["
+        "\U0001F600-\U0001F64F"  # Emoticonos
+        "\U0001F300-\U0001F5FF"  # Símbolos y pictogramas
+        "\U0001F680-\U0001F6FF"  # Transporte y mapas
+        "\U0001F1E0-\U0001F1FF"  # Banderas
+        "\U00002700-\U000027BF"  # Símbolos varios
+        "\U000024C2-\U0001F251"
+        "]+", flags=re.UNICODE
+        )
+        return emoji_pattern.sub(r'', text)

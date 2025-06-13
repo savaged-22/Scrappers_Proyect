@@ -21,12 +21,12 @@ async def twitterscrapper(profile:str, request:Request):
         raise HTTPException(status_code=500, detail =str(e))
     
 
-@router.get("/twitter/profiles")
+@router.post("/twitter/profiles")
 async def accountsScrapper(profiles:List[str],request:Request):
     try:
         db = request.app.database
         scraper = TwitterScraperService(db)
-        tweets = scraper.scrape_and_save_profiles(profiles)
+        tweets = await scraper.scrape_and_save_profiles(profiles)
         tweets = jsonable_encoder(tweets)
         return JSONResponse(content=tweets)
 
@@ -42,6 +42,18 @@ async def instagramscraper(profile:str, request:Request):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail =str(e))
+    
+@router.post("/instagram/profiles")
+async def instagramprofilesscr(profiles:List[str], request:Request):
+    try:
+        db=request.app.database
+        scrapper = InstaScraperService(db)
+        posts = await scrapper.consult_profiles(profiles)
+        posts = jsonable_encoder(posts)
+        return JSONResponse(content=posts)
+        
+    except Exception as e:
+        raise HTTPException(status_code= 500, detail={e})
 
 
 @router.get("/Facebook/{profile}")

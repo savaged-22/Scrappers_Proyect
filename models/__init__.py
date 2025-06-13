@@ -1,1 +1,2 @@
 from .TwitterScreape import TweetContent,TwitterScreape
+from .FacebookScrape import EngagementMetrics, MediaContent,FacebookPost,FacebookScrapeResult
