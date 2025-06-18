@@ -1,3 +1,4 @@
+import logging
 from fastapi import APIRouter, Body, Request, Response, HTTPException, status
 from fastapi.encoders import jsonable_encoder
 from typing import List
@@ -7,7 +8,8 @@ from services.InstaScraperService import InstaScraperService
 from services.FaceScraperService import FaceScraperService
 
 router =  APIRouter()
-
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s') # Changed to INFO for less verbosity
+log = logging.getLogger(__name__)
 
 @router.get("/twitter/{profile}")
 async def twitterscrapper(profile:str, request:Request):
@@ -38,22 +40,23 @@ async def instagramscraper(profile:str, request:Request):
     try:
         db = request.app.database
         scrapper = InstaScraperService(db)
-        return await scrapper.scrape_by_profile(profile)
+        return await scrapper.scrape_user_posts(profile)
 
     except Exception as e:
         raise HTTPException(status_code=500, detail =str(e))
     
 @router.post("/instagram/profiles")
-async def instagramprofilesscr(profiles:List[str], request:Request):
+async def instagramprofilesscr(profiles: List[str], request: Request):
     try:
-        db=request.app.database
+        db = request.app.database
         scrapper = InstaScraperService(db)
         posts = await scrapper.consult_profiles(profiles)
-        posts = jsonable_encoder(posts)
-        return JSONResponse(content=posts)
+        response_content = jsonable_encoder(posts) 
+        return JSONResponse(content=response_content)
         
     except Exception as e:
-        raise HTTPException(status_code= 500, detail={e})
+        log.exception("Error in /instagram/profiles endpoint:") # Log the full traceback
+        raise HTTPException(status_code=500, detail={"error": str(e)}) # Return string of error for detail
 
 
 @router.get("/Facebook/{profile}")

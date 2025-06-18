@@ -19,8 +19,8 @@ class TweetContent(BaseModel):
     menciones_usuarios: List[str] = Field([], description="Lista de nombres de usuario mencionados en el tweet.")
     es_retweet: bool = Field(False, description="Indica si el tweet es un retweet.")
     es_respuesta: bool = Field(False, description="Indica si el tweet es una respuesta a otro tweet.")
-    # Puedes añadir más campos como:
-    # media_urls: List[HttpUrl] = Field([], description="URLs de imágenes o videos adjuntos.")
+    location: Optional[str]=Field(None, description="Poder presentar la ubicacion del tweet. ")
+    media_urls: List[HttpUrl] = Field([], description="URLs de imágenes o videos adjuntos.")
     # id_respuesta_a: Optional[str] = Field(None, description="ID del tweet al que se está respondiendo.")
 
     class Config:
@@ -38,6 +38,5 @@ class TwitterScreape(BaseModel):
     rango_fechas_busqueda: Optional[str] = Field(None, description="Rango de fechas de los tweets buscados (ej. 'últimos 7 días').")
     estado_scrape: str = Field("Completado", description="Estado de la operación de scrape (ej. 'Completado', 'Fallido', 'Parcial').")
     mensaje_error: Optional[str] = Field(None, description="Detalles del error si el scrape falló o fue parcial.")
-
     class Config:
         populate_by_name = True

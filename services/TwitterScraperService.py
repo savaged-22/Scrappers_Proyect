@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from dotenv import load_dotenv
 from twikit import Client, errors
 from models import TweetContent, TwitterScreape 
-from pydantic import ValidationError 
+from pydantic import HttpUrl, ValidationError 
 
 load_dotenv()
 
@@ -84,7 +84,7 @@ class TwitterScraperService:
 
                 for tweet_twikit in tweets_from_twikit:
                     # Pequeña pausa para simular comportamiento humano
-                    await asyncio.sleep(random.uniform(0.5, 1.5)) 
+                    await asyncio.sleep(random.uniform(5.5, 12.5)) 
 
                     # Convertir la fecha de string a datetime para comparación y modelo
                     created_at_dt = None
@@ -93,16 +93,44 @@ class TwitterScraperService:
                             created_at_dt = datetime.strptime(tweet_twikit.created_at, "%a %b %d %H:%M:%S %z %Y")
                         except ValueError:
                             logging.warning(f"Could not parse date for tweet ID {tweet_twikit.id} from {profile_name}: {tweet_twikit.created_at}")
-                            continue # Saltar este tweet si la fecha no se puede parsear
-
-                    # Filtrar por fecha
+                            continue 
                     if created_at_dt and created_at_dt > one_week_ago:
                         try:
-                            # Extraer hashtags y menciones
                             hashtags = [hashtag.text for hashtag in tweet_twikit.hashtags] if hasattr(tweet_twikit, 'hashtags') and tweet_twikit.hashtags else []
                             mentions = [mention.screen_name for mention in tweet_twikit.mentions] if hasattr(tweet_twikit, 'mentions') and tweet_twikit.mentions else []
+                            
+                            tweet_location=None
+                            if hasattr(tweet_twikit,'place') and tweet_twikit.place:
+                                if hasattr(tweet_twikit.place,'full_name') and tweet_twikit.place.full_name:
+                                    tweet_location = tweet_twikit.place.full_name
+                                elif isinstance(tweet_twikit.place, dict) and 'full_name' in tweet_twikit.place:
+                                    tweet_location=tweet_twikit.place['full_name']
 
-                            # Crear el objeto TweetContent con los nuevos campos
+                            media_urls = []
+                            if hasattr(tweet_twikit, 'media') and tweet_twikit.media:
+                                for media_item in tweet_twikit.media:
+                                    if hasattr(media_item, 'type') and media_item.type in ['photo', 'video', 'animated_gif']:
+                                        if hasattr(media_item, 'media_url_https'):
+                                            try:
+                                                media_urls.append(HttpUrl(media_item.media_url_https))
+                                            except Exception as url_e:
+                                                logging.warning(f"Invalid media URL found for tweet {tweet_twikit.id}: {media_item.media_url_https}. Error: {url_e}")
+                                        elif hasattr(media_item, 'video_info') and hasattr(media_item.video_info, 'variants'):
+                                            best_video_url = None
+                                            max_bitrate = -1
+                                            for variant in media_item.video_info.variants:
+                                                if hasattr(variant, 'content_type') and 'video' in variant.content_type and hasattr(variant, 'url'):
+                                                    if hasattr(variant, 'bitrate') and variant.bitrate is not None and variant.bitrate > max_bitrate:
+                                                        max_bitrate = variant.bitrate
+                                                        best_video_url = variant.url
+                                                    elif best_video_url is None: # Fallback if no bitrates
+                                                        best_video_url = variant.url
+                                            if best_video_url:
+                                                try:
+                                                    media_urls.append(HttpUrl(best_video_url))
+                                                except Exception as url_e:
+                                                    logging.warning(f"Invalid video URL found for tweet {tweet_twikit.id}: {best_video_url}. Error: {url_e}")
+                            
                             tweets_data.append(TweetContent(
                                 id_tweet=tweet_twikit.id,
                                 usuario_screen_name=profile_name, # O tweet_twikit.user.screen_name si quieres el autor original del retweet
@@ -115,7 +143,8 @@ class TwitterScraperService:
                                 hashtags=hashtags,
                                 menciones_usuarios=mentions,
                                 es_retweet=tweet_twikit.is_retweet if hasattr(tweet_twikit, 'is_retweet') else False,
-                                es_respuesta=tweet_twikit.is_reply if hasattr(tweet_twikit, 'is_reply') else False
+                                es_respuesta=tweet_twikit.is_reply if hasattr(tweet_twikit, 'is_reply') else False,
+                                location = tweet_location
                             ))
                         except ValidationError as ve:
                             logging.error(f"Pydantic validation error for tweet ID {tweet_twikit.id} from {profile_name}: {ve}")
